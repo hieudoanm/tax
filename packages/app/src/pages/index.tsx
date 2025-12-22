@@ -214,34 +214,38 @@ const HomePage: NextPage = () => {
   return (
     <main className="bg-base-200 min-h-screen p-4">
       <div className="mx-auto max-w-lg space-y-4">
-        <h1 className="text-center text-xl font-bold">🇻🇳 Máy tính Thuế TNCN</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-center text-lg font-bold md:text-xl">
+            🇻🇳 Tính Thuế TNCN
+          </h1>
 
-        {/* Period */}
-        <div className="join flex justify-center">
-          <label className="join-item">
-            <input
-              type="radio"
-              name="period"
-              className="peer hidden"
-              checked={period === 'monthly'}
-              onChange={() => setPeriod('monthly')}
-            />
-            <div className="btn btn-sm peer-checked:btn-primary transition-all duration-200 peer-checked:text-white">
-              📅 Tháng
-            </div>
-          </label>
-          <label className="join-item">
-            <input
-              type="radio"
-              name="period"
-              className="peer hidden"
-              checked={period === 'annual'}
-              onChange={() => setPeriod('annual')}
-            />
-            <div className="btn btn-sm peer-checked:btn-primary transition-all duration-200 peer-checked:text-white">
-              🗓️ Năm
-            </div>
-          </label>
+          {/* Period */}
+          <div className="join flex justify-center">
+            <label className="join-item">
+              <input
+                type="radio"
+                name="period"
+                className="peer hidden"
+                checked={period === 'monthly'}
+                onChange={() => setPeriod('monthly')}
+              />
+              <div className="btn btn-sm peer-checked:btn-primary transition-all duration-200 peer-checked:text-white">
+                📅 Tháng
+              </div>
+            </label>
+            <label className="join-item">
+              <input
+                type="radio"
+                name="period"
+                className="peer hidden"
+                checked={period === 'annual'}
+                onChange={() => setPeriod('annual')}
+              />
+              <div className="btn btn-sm peer-checked:btn-primary transition-all duration-200 peer-checked:text-white">
+                🗓️ Năm
+              </div>
+            </label>
+          </div>
         </div>
 
         {/* Inputs */}
