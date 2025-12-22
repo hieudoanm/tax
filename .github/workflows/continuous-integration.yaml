@@ -1,0 +1,52 @@
+name: Continuous Integration
+
+# Trigger this workflow on push to specified branches
+on:
+  push:
+    branches:
+      - "master" # Main production branch
+      - "develop" # Main development branch
+      - "hotfix/**" # Hotfix branches
+      - "feature/**" # Feature branches
+      - "renovate/**" # Automated dependency updates (Renovate bot)
+      - "dependabot/**" # Automated dependency updates (Dependabot)
+
+jobs:
+  ci:
+    name: Continuous Integration
+    runs-on: ubuntu-latest # Use latest Ubuntu runner
+
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Step 2: Set up Go environment (for backend or CLI tools)
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.4" # Specify Go version
+
+      # Step 3: Set up pnpm (for Node.js project dependencies)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.26.1"
+
+      # Step 4: Set up Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24.11.1" # Specify Node.js version
+
+      # Step 5: Install project dependencies via pnpm
+      - name: Install Dependencies
+        run: pnpm install
+
+      # Step 6: Run linter for static code analysis
+      - name: Linting
+        run: pnpm run lint
+
+      # Step 7: Build the project for production
+      - name: Build Production
+        run: pnpm run build
