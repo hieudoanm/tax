@@ -1,11 +1,12 @@
 import { NextPage } from 'next';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 /* =======================
    TYPES
 ======================= */
 
 type Period = 'monthly' | 'annual';
+type SalaryMode = 'gross' | 'net';
 
 type TaxBracket = {
   limit: number;
@@ -24,6 +25,9 @@ type TaxBreakdownItem = {
 
 const PERSONAL_DEDUCTION = 11_000_000;
 const DEPENDENT_DEDUCTION = 4_400_000;
+
+/** Approx insurance salary cap (configurable) */
+const INSURANCE_CAP = 36_000_000;
 
 /** Employee contribution */
 const EMPLOYEE_INSURANCE = {
@@ -59,11 +63,8 @@ const toMonthly = (value: number, period: Period): number =>
 const sumRates = (rates: Record<string, number>): number =>
   Object.values(rates).reduce((a, b) => a + b, 0);
 
-const calculateInsurance = (
-  gross: number,
-  enabled: boolean,
-  rates: Record<string, number>
-): number => (enabled ? gross * sumRates(rates) : 0);
+const clampInsuranceBase = (gross: number, enabled: boolean): number =>
+  enabled ? Math.min(gross, INSURANCE_CAP) : 0;
 
 const calculateTaxBreakdown = (
   taxableIncome: number
@@ -91,6 +92,31 @@ const calculateTaxBreakdown = (
   return { breakdown, totalTax };
 };
 
+/** Iterative net → gross solver */
+const solveGrossFromNet = (
+  targetNet: number,
+  dependents: number,
+  insuranceEnabled: boolean
+): number => {
+  let gross = targetNet;
+
+  for (let i = 0; i < 20; i++) {
+    const insuranceBase = clampInsuranceBase(gross, insuranceEnabled);
+    const insurance = insuranceBase * sumRates(EMPLOYEE_INSURANCE);
+
+    const deductions =
+      PERSONAL_DEDUCTION + dependents * DEPENDENT_DEDUCTION + insurance;
+
+    const taxable = Math.max(0, gross - deductions);
+    const { totalTax } = calculateTaxBreakdown(taxable);
+
+    const net = gross - insurance - totalTax;
+    gross += targetNet - net;
+  }
+
+  return Math.max(0, gross);
+};
+
 const exportCSV = (rows: string[][], filename: string) => {
   const csv = rows.map((r) => r.join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -100,35 +126,69 @@ const exportCSV = (rows: string[][], filename: string) => {
   link.click();
 };
 
+const readInitialState = () => {
+  const p = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : ''
+  );
+
+  return {
+    income: Number(p.get('income')) || 20_000_000,
+    dependents: Number(p.get('dep')) || 0,
+    period: (p.get('period') as Period) || 'monthly',
+    salaryMode: (p.get('mode') as SalaryMode) || 'gross',
+    insuranceEnabled: p.get('ins') !== '0',
+  };
+};
+
 /* =======================
    PAGE
 ======================= */
 
 const HomePage: NextPage = () => {
-  const [period, setPeriod] = useState<Period>('monthly');
-  const [grossIncome, setGrossIncome] = useState(20_000_000);
-  const [dependents, setDependents] = useState(0);
-  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
+  const initial = readInitialState();
+
+  const [income, setIncome] = useState(initial.income);
+  const [dependents, setDependents] = useState(initial.dependents);
+  const [period, setPeriod] = useState<Period>(initial.period);
+  const [salaryMode, setSalaryMode] = useState<SalaryMode>(initial.salaryMode);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(
+    initial.insuranceEnabled
+  );
+
+  /* Sync URL */
+  useEffect(() => {
+    const params = new URLSearchParams({
+      income: income.toString(),
+      dep: dependents.toString(),
+      period,
+      mode: salaryMode,
+      ins: insuranceEnabled ? '1' : '0',
+    });
+
+    window.history.replaceState({}, '', `?${params.toString()}`);
+  }, [income, dependents, period, salaryMode, insuranceEnabled]);
 
   const data = useMemo(() => {
-    const grossMonthly = toMonthly(grossIncome, period);
+    const grossBase =
+      salaryMode === 'gross'
+        ? income
+        : solveGrossFromNet(income, dependents, insuranceEnabled);
 
-    const employeeInsurance = calculateInsurance(
-      grossMonthly,
-      insuranceEnabled,
-      EMPLOYEE_INSURANCE
-    );
+    const grossMonthly = toMonthly(grossBase, period);
 
-    const employerInsurance = calculateInsurance(
-      grossMonthly,
-      insuranceEnabled,
-      EMPLOYER_INSURANCE
-    );
+    const insuranceBase = clampInsuranceBase(grossMonthly, insuranceEnabled);
 
-    const deductions =
-      PERSONAL_DEDUCTION + dependents * DEPENDENT_DEDUCTION + employeeInsurance;
+    const employeeInsurance = insuranceBase * sumRates(EMPLOYEE_INSURANCE);
 
-    const taxableIncome = Math.max(0, grossMonthly - deductions);
+    const employerInsurance = insuranceBase * sumRates(EMPLOYER_INSURANCE);
+
+    const personalDeduction = PERSONAL_DEDUCTION;
+    const dependentDeduction = dependents * DEPENDENT_DEDUCTION;
+
+    const totalDeductions =
+      personalDeduction + dependentDeduction + employeeInsurance;
+
+    const taxableIncome = Math.max(0, grossMonthly - totalDeductions);
 
     const { breakdown, totalTax } = calculateTaxBreakdown(taxableIncome);
 
@@ -136,65 +196,135 @@ const HomePage: NextPage = () => {
 
     return {
       grossMonthly,
+      insuranceBase,
       employeeInsurance,
       employerInsurance,
-      totalLaborCost: grossMonthly + employerInsurance,
+      personalDeduction,
+      dependentDeduction,
+      totalDeductions,
       taxableIncome,
       breakdown,
       totalTax,
       netMonthly,
+      effectiveTaxRate: grossMonthly ? totalTax / grossMonthly : 0,
+      totalLaborCost: grossMonthly + employerInsurance,
     };
-  }, [grossIncome, dependents, period, insuranceEnabled]);
+  }, [income, dependents, period, insuranceEnabled, salaryMode]);
 
   return (
     <main className="bg-base-200 min-h-screen p-4">
       <div className="mx-auto max-w-lg space-y-4">
-        <h1 className="text-center text-xl font-bold">
-          🇻🇳 Máy tính Thuế TNCN Việt Nam
-        </h1>
+        <h1 className="text-center text-xl font-bold">🇻🇳 Máy tính Thuế TNCN</h1>
 
         {/* Period */}
-        <div className="tabs tabs-boxed justify-center">
-          <button
-            className={`tab ${period === 'monthly' && 'tab-active'}`}
-            onClick={() => setPeriod('monthly')}>
-            Tháng
-          </button>
-          <button
-            className={`tab ${period === 'annual' && 'tab-active'}`}
-            onClick={() => setPeriod('annual')}>
-            Năm
-          </button>
+        <div className="join flex justify-center">
+          <label className="join-item">
+            <input
+              type="radio"
+              name="period"
+              className="peer hidden"
+              checked={period === 'monthly'}
+              onChange={() => setPeriod('monthly')}
+            />
+            <div className="btn btn-sm peer-checked:btn-primary transition-all duration-200 peer-checked:text-white">
+              📅 Tháng
+            </div>
+          </label>
+          <label className="join-item">
+            <input
+              type="radio"
+              name="period"
+              className="peer hidden"
+              checked={period === 'annual'}
+              onChange={() => setPeriod('annual')}
+            />
+            <div className="btn btn-sm peer-checked:btn-primary transition-all duration-200 peer-checked:text-white">
+              🗓️ Năm
+            </div>
+          </label>
         </div>
 
         {/* Inputs */}
         <div className="card bg-base-100 shadow">
-          <div className="card-body space-y-3">
-            <input
-              type="number"
-              className="input input-bordered"
-              placeholder="Thu nhập gộp"
-              value={grossIncome}
-              onChange={(e) => setGrossIncome(+e.target.value)}
-            />
+          <div className="card-body space-y-4">
+            {/* Gross ↔ Net switch */}
+            <div className="flex justify-center">
+              <button
+                className="btn btn-primary flex w-full items-center gap-2"
+                onClick={() =>
+                  setSalaryMode((m) => (m === 'gross' ? 'net' : 'gross'))
+                }>
+                {salaryMode === 'gross' ? (
+                  <span>Gross → Net</span>
+                ) : (
+                  <span>Net → Gross</span>
+                )}
+              </button>
+            </div>
 
-            <input
-              type="number"
-              className="input input-bordered"
-              placeholder="Người phụ thuộc"
-              value={dependents}
-              onChange={(e) => setDependents(+e.target.value)}
-            />
-
-            <label className="label cursor-pointer">
-              <span className="label-text">Tính bảo hiểm</span>
+            {/* Income input */}
+            <div className="form-control">
+              <label className="label mb-1">
+                <span className="label-text font-medium">
+                  {salaryMode === 'gross'
+                    ? '💼 Thu nhập gộp (Gross)'
+                    : '💰 Thu nhập thực lĩnh (Net)'}
+                </span>
+              </label>
               <input
-                type="checkbox"
-                className="toggle toggle-primary"
-                checked={insuranceEnabled}
-                onChange={() => setInsuranceEnabled((v) => !v)}
+                type="number"
+                className="input input-bordered w-full"
+                value={income}
+                onChange={(e) => setIncome(+e.target.value)}
               />
-            </label>
+            </div>
+
+            {/* Dependents */}
+            <div className="form-control">
+              <label className="label mb-1">
+                <span className="label-text font-medium">
+                  👨‍👩‍👧 Người phụ thuộc
+                </span>
+              </label>
+              <input
+                type="number"
+                className="input input-bordered w-full"
+                value={dependents}
+                onChange={(e) => setDependents(+e.target.value)}
+              />
+            </div>
+
+            {/* Insurance toggle */}
+            <div className="form-control">
+              <label className="label cursor-pointer">
+                <span className="label-text font-medium">🛡️ Tính bảo hiểm</span>
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary"
+                  checked={insuranceEnabled}
+                  onChange={() => setInsuranceEnabled((v) => !v)}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Deductions */}
+        <div className="card bg-base-100 text-sm shadow">
+          <div className="card-body space-y-1">
+            <h2 className="font-semibold">🧾 Khấu trừ</h2>
+            <p>👤 Cá nhân: {data.personalDeduction.toLocaleString()} VND</p>
+            <p>👨‍👩‍👧 Phụ thuộc: {data.dependentDeduction.toLocaleString()} VND</p>
+            <p>
+              💼 Bảo hiểm NLĐ: {data.employeeInsurance.toLocaleString()} VND
+            </p>
+            <div className="divider my-1" />
+            <p className="font-bold">
+              Tổng: {data.totalDeductions.toLocaleString()} VND
+            </p>
+            {insuranceEnabled && data.insuranceBase < data.grossMonthly && (
+              <p className="text-warning text-xs">⚠ Áp dụng trần bảo hiểm</p>
+            )}
           </div>
         </div>
 
@@ -202,20 +332,12 @@ const HomePage: NextPage = () => {
         <div className="card bg-base-100 shadow">
           <div className="card-body space-y-2">
             <p>
-              💼 <b>Bảo hiểm NLĐ:</b> {data.employeeInsurance.toLocaleString()}{' '}
-              VND
+              🧾 Thu nhập chịu thuế: {data.taxableIncome.toLocaleString()} VND
             </p>
             <p>
-              🏢 <b>Bảo hiểm DN:</b> {data.employerInsurance.toLocaleString()}{' '}
-              VND
+              📉 Thuế hiệu dụng: {(data.effectiveTaxRate * 100).toFixed(2)}%
             </p>
-            <p>
-              🧾 <b>Thu nhập chịu thuế:</b>{' '}
-              {data.taxableIncome.toLocaleString()} VND
-            </p>
-
             <div className="divider" />
-
             <p className="text-primary text-lg font-bold">
               💰 Thực lĩnh: {data.netMonthly.toLocaleString()} VND
             </p>
@@ -225,57 +347,83 @@ const HomePage: NextPage = () => {
           </div>
         </div>
 
-        {/* Tax Breakdown */}
+        {/* Breakdown */}
         <div className="card bg-base-100 shadow">
           <div className="card-body">
-            <h2 className="mb-2 font-semibold">🧮 Chi tiết thuế theo bậc</h2>
-
-            <div className="overflow-x-auto">
-              <table className="table-sm table">
-                <thead>
-                  <tr>
-                    <th>Thuế suất</th>
-                    <th>Chịu thuế</th>
-                    <th>Thuế</th>
+            <h2 className="mb-2 font-semibold">🧮 Chi tiết thuế</h2>
+            <table className="table-sm table">
+              <thead>
+                <tr>
+                  <th>Thuế suất</th>
+                  <th>Chịu thuế</th>
+                  <th>Thuế</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.breakdown.map((b, i) => (
+                  <tr key={i}>
+                    <td>{b.rate * 100}%</td>
+                    <td>{b.taxable.toLocaleString()}</td>
+                    <td>{b.tax.toLocaleString()}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {data.breakdown.map((b, i) => (
-                    <tr key={i}>
-                      <td>{b.rate * 100}%</td>
-                      <td>{b.taxable.toLocaleString()}</td>
-                      <td>{b.tax.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Export */}
-        <div className="flex gap-2">
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={() =>
-              exportCSV(
-                [
-                  ['Gross', data.grossMonthly.toString()],
-                  ['Employee insurance', data.employeeInsurance.toString()],
-                  ['Tax', data.totalTax.toString()],
-                  ['Net', data.netMonthly.toString()],
-                ],
-                'pit-vietnam.csv'
-              )
-            }>
-            📤 CSV
-          </button>
+        {/* Export & Share */}
+        <div className="card bg-base-100 shadow">
+          <div className="card-body space-y-3">
+            <h2 className="text-sm font-semibold">📤 Xuất & Chia sẻ</h2>
 
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={() => window.print()}>
-            📄 PDF
-          </button>
+            <div className="flex flex-wrap gap-2">
+              {/* CSV */}
+              <button
+                className="btn btn-primary btn-sm flex-1"
+                onClick={() =>
+                  exportCSV(
+                    [
+                      ['Gross', data.grossMonthly.toString()],
+                      ['Insurance', data.employeeInsurance.toString()],
+                      ['Tax', data.totalTax.toString()],
+                      ['Net', data.netMonthly.toString()],
+                    ],
+                    'thue-tncn-vietnam.csv'
+                  )
+                }>
+                📊 CSV
+              </button>
+
+              {/* PDF */}
+              <button
+                className="btn btn-secondary btn-sm flex-1"
+                onClick={() => window.print()}>
+                🖨️ PDF
+              </button>
+
+              {/* Share */}
+              <button
+                className="btn btn-accent btn-sm flex-1"
+                onClick={async () => {
+                  const url = window.location.href;
+
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    alert('🔗 Đã sao chép link chia sẻ!');
+                  } catch {
+                    alert('❌ Không thể sao chép link');
+                  }
+                }}>
+                🔗 Chia sẻ
+              </button>
+            </div>
+
+            <p className="text-xs opacity-60">
+              Link chia sẻ sẽ giữ nguyên thu nhập, số người phụ thuộc và chế độ
+              tính.
+            </p>
+          </div>
         </div>
       </div>
     </main>
