@@ -47,6 +47,9 @@ jobs:
       - name: Linting
         run: pnpm run lint
 
+      - name: Test
+        run: pnpm run test
+
       # Step 7: Build the project for production
       - name: Build Production
         run: pnpm run build
