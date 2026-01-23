@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "24.12.0" # Specify Node.js version
+          node-version: "24.13.0" # Specify Node.js version
 
       # Step 5: Install project dependencies via pnpm
       - name: Install Dependencies
