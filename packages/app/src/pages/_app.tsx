@@ -8,6 +8,8 @@ const App: FC<AppProps> = ({ Component, pageProps }: AppProps) => {
     <>
       <Head>
         <title>Tax</title>
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="manifest" href="/manifest.json" />
       </Head>
       <Component {...pageProps} />
     </>
