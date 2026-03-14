@@ -17,15 +17,15 @@
   "license": "GPL-3.0",
   "author": "hieudoanm <hieumdoan@gmail.com> (https://hieudoanm.github.io)",
   "scripts": {
-    "predev": "kill-port 3000",
-    "dev": "next dev",
+    "lint": "eslint . --fix",
+    "format": "prettier --cache --write .",
+    "predev": "rimraf .next && kill-port 3000",
+    "dev": "next dev --turbopack",
     "prebuild": "rimraf .next ../../docs",
     "build": "next build",
     "postbuild": "touch ../../docs/.nojekyll",
     "prestart": "kill-port 3000",
     "start": "next start",
-    "format": "prettier --cache --write .",
-    "lint": "eslint . --fix",
     "test": "jest"
   },
   "dependencies": {
