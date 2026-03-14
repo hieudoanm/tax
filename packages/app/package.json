@@ -24,7 +24,7 @@
     "pretest": "jest --clearCache",
     "test": "jest",
     "prebuild": "rimraf .next ../../docs",
-    "build": "next build",
+    "build": "next build --turbopack",
     "postbuild": "touch ../../docs/.nojekyll",
     "prestart": "kill-port 3000",
     "start": "next start"
