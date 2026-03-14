@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "tax",
+  "productName": "Tax",
   "version": "0.0.1",
   "identifier": "io.github.hieudoanm.tax",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "@tax/app",
+        "title": "Tax",
         "width": 800,
         "height": 600,
         "resizable": true,
