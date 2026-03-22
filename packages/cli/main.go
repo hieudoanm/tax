@@ -3,7 +3,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 */
 package main
 
-import "tax-cli/cmd"
+import "github.com/hieudoanm/tax/src/cmd"
 
 func main() {
 	cmd.Execute()

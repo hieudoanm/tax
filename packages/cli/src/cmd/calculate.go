@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"tax-cli/ui"
+	"github.com/hieudoanm/tax/src/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -12,7 +12,7 @@ import (
 
 var calculateCmd = &cobra.Command{
 	Use:   "calculate",
-	Short: "Tính thuế thu nhập cá nhân Việt Nam (interactive)",
+	Short: "Run the calculate operation for the tax app",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return ui.RunTaxTUI()
 	},
