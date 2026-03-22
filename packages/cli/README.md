@@ -11,9 +11,7 @@
 ## 📦 Installation
 
 ```bash
-curl -fsSL https://github.com/hieudoanm/tax/raw/refs/heads/master/packages/cli/bin/tax -o tax
-chmod +x tax
-sudo mv tax /usr/local/bin/
+curl -fsSL https://raw.githubusercontent.com/hieudoanm/tax/master/packages/cli/scripts/install.sh | bash
 ```
 
 ## 🚀 Usage
