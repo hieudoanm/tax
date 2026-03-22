@@ -4,6 +4,10 @@ BIN_DIR := bin
 BIN_NAME := tax
 SRC := ./main.go
 
+VERSION := $(shell date +%Y.%m.%d.%H.%M.%S)
+LDFLAGS := -ldflags="-X 'github.com/hieudoanm/tax/src/cmd.Version=$(VERSION)'"
+
+
 ## Commands
 lint:
 	go vet ./...
@@ -16,7 +20,7 @@ build: format lint
 	@mkdir -p $(BIN_DIR)
 	go env GOOS GOARCH
 	go clean -cache -modcache
-	go build -trimpath -ldflags="-s -w" -o $(BIN_DIR)/$(BIN_NAME) $(SRC)
+	go build $(LDFLAGS) -trimpath -ldflags="-s -w" -o $(BIN_DIR)/$(BIN_NAME) $(SRC)
 
 ## Install binary into ~/bin
 install: build
