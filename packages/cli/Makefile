@@ -18,9 +18,7 @@ format:
 ## Build binary into ./bin
 build: format lint
 	@mkdir -p $(BIN_DIR)
-	go env GOOS GOARCH
-	go clean -cache -modcache
-	go build $(LDFLAGS) -trimpath -ldflags="-s -w" -o $(BIN_DIR)/$(BIN_NAME) $(SRC)
+	go build $(LDFLAGS) -o $(BIN_DIR)/$(BIN_NAME) $(SRC)
 
 ## Install binary into ~/bin
 install: build
