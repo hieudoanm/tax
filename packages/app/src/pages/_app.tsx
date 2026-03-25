@@ -1,16 +1,12 @@
 import '@tax/styles/globals.css';
+import { HeadTemplate } from '../templates/HeadTemplate';
 import type { AppProps } from 'next/app';
-import Head from 'next/head';
 import { FC } from 'react';
 
 const App: FC<AppProps> = ({ Component, pageProps }: AppProps) => {
   return (
     <>
-      <Head>
-        <title>Tax</title>
-        <link rel="icon" href="/favicon.ico" />
-        <link rel="manifest" href="/manifest.json" />
-      </Head>
+      <HeadTemplate basic={{ title: 'Tax' }} />
       <Component {...pageProps} />
     </>
   );
