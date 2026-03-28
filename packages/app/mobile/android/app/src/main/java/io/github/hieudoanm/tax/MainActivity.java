@@ -1,4 +1,4 @@
-package io.github.hieudoanm.bci;
+package io.github.hieudoanm.tax;
 
 import com.getcapacitor.BridgeActivity;
 
