@@ -39,6 +39,9 @@ Tax is a focused project in this monorepo that delivers a practical tool with a 
 - 💻 [CLI](https://github.com/hieudoanm/tax/releases)
 - 📱 [Mobile](https://github.com/hieudoanm/tax/releases)
 - 🖥️ [Desktop](https://github.com/hieudoanm/tax/releases)
+  - 🍎 [MacOS](https://github.com/hieudoanm/tax/releases/tag/macos-latest)
+  - 🐧 [Ubuntu](https://github.com/hieudoanm/tax/releases/tag/ubuntu-latest)
+  - 🪟 [Windows](https://github.com/hieudoanm/tax/releases/tag/windows-latest)
 
 ## 🛠️ 5. Development Stack
 
