@@ -11,9 +11,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "github.com/hieudoanm/tax",
+	Use:   "tax",
 	Short: "Tax CLI application (finance tools)",
-	Long:  `The tax CLI application is a comprehensive backend utility belonging to the finance suite of tools.
+	Long: `The tax CLI application is a comprehensive backend utility belonging to the finance suite of tools.
 
 Use this root executable to manage configuring, running, and interacting with all tax-related operations securely and efficiently from your terminal.`,
 	// Uncomment the following line if your bare application
