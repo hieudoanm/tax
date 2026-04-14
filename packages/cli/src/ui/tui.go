@@ -6,9 +6,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 /* =======================
@@ -50,12 +50,6 @@ const (
 var EmployeeInsurance = map[string]float64{
 	"BHXH": 0.08,
 	"BHYT": 0.015,
-	"BHTN": 0.01,
-}
-
-var EmployerInsurance = map[string]float64{
-	"BHXH": 0.175,
-	"BHYT": 0.03,
 	"BHTN": 0.01,
 }
 
@@ -216,7 +210,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		case "up", "down":
+		case "left", "right":
 			m.toggle()
 			return m, nil
 
@@ -263,15 +257,22 @@ func (m model) next() (tea.Model, tea.Cmd) {
 		m.step = stepIncome
 		m.input.Placeholder = "Thu nhập (VND)"
 		m.input.SetValue("")
+		m.input.Focus()
 
 	case stepIncome:
-		m.income, _ = strconv.ParseFloat(m.input.Value(), 64)
+		if val, err := strconv.ParseFloat(m.input.Value(), 64); err == nil {
+			m.income = val
+		}
 		m.step = stepDependents
 		m.input.Placeholder = "Số người phụ thuộc"
 		m.input.SetValue("")
+		m.input.Focus()
 
 	case stepDependents:
-		m.dependents, _ = strconv.Atoi(m.input.Value())
+		if val, err := strconv.Atoi(m.input.Value()); err == nil {
+			m.dependents = val
+		}
+		m.input.Blur()
 		m.step = stepInsurance
 
 	case stepInsurance:
@@ -286,37 +287,49 @@ func (m model) next() (tea.Model, tea.Cmd) {
 }
 
 /* =======================
-   VIEW
+   VIEW (v2)
 ======================= */
 
-func (m model) View() string {
+func (m model) View() tea.View {
 	switch m.step {
 
 	case stepMode:
-		return title.Render("🔁 Chế độ lương\n\n") +
-			radio("Gross → Net", m.mode == Gross) +
-			radio("Net → Gross", m.mode == Net)
+		return tea.NewView(
+			title.Render("🔁 Chế độ lương\n\n") +
+				radio("Gross → Net", m.mode == Gross) +
+				radio("Net → Gross", m.mode == Net),
+		)
 
 	case stepPeriod:
-		return title.Render("📅 Kỳ tính\n\n") +
-			radio("Tháng", m.period == Monthly) +
-			radio("Năm", m.period == Annual)
+		return tea.NewView(
+			title.Render("📅 Kỳ tính\n\n") +
+				radio("Tháng", m.period == Monthly) +
+				radio("Năm", m.period == Annual),
+		)
 
 	case stepIncome, stepDependents:
-		return title.Render("✏️ Nhập dữ liệu\n\n") +
-			m.input.View() + "\n\nEnter tiếp tục"
+		return tea.NewView(
+			title.Render("✏️ Nhập dữ liệu\n\n") +
+				m.input.View() + "\n\nEnter tiếp tục",
+		)
 
 	case stepInsurance:
-		return title.Render("🛡️ Bảo hiểm\n\n") +
-			radio("Có", m.insurance) +
-			radio("Không", !m.insurance)
+		return tea.NewView(
+			title.Render("🛡️ Bảo hiểm\n\n") +
+				radio("Có", m.insurance) +
+				radio("Không", !m.insurance),
+		)
 
 	case stepResult:
-		return m.resultView()
+		return tea.NewView(m.resultView())
 	}
 
-	return ""
+	return tea.NewView("")
 }
+
+/* =======================
+   HELPERS (FIXED)
+======================= */
 
 func radio(label string, on bool) string {
 	if on {
@@ -324,10 +337,6 @@ func radio(label string, on bool) string {
 	}
 	return dim.Render("⚪ " + label + "\n")
 }
-
-/* =======================
-   RESULT + CSV
-======================= */
 
 func (m model) resultView() string {
 	var gross float64
@@ -362,6 +371,7 @@ func (m model) resultView() string {
 func exportCSV(m model) {
 	file, _ := os.Create("pit-vietnam.csv")
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
